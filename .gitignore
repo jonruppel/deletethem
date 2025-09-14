@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Dependencies / builds
+node_modules/
+vendor/
+dist/
+build/
+
+# Local env/secrets
+.env
+api/config.php
+
+# Zips and deploy artifacts
+zips/
+zips.zip
+
+# Logs
+*.log
+

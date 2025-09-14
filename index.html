@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Delete Them</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <script defer src="./assets/js/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <div class="site-logo" aria-label="Delete Them">
+          <img src="./assets/images/logo.svg" alt="Delete Them" />
+        </div>
+        <p class="tagline">Got someone in your photo you want to get rid of? Delete them.</p>
+      </div>
+    </header>
+
+    <main class="container">
+      <section id="workspaceSection" class="workspace-section">
+        <input id="fileInput" type="file" accept="image/*" />
+        
+        <!-- Upload message (shown when no image loaded) -->
+        <div id="uploadMessage" class="upload-message">
+          <div class="upload-content">
+            <div class="drop-icon">📷</div>
+            <div>
+              <p><strong>Drag & drop</strong> an image here, or</p>
+              <button id="browseBtn" class="btn">Browse</button>
+              <p class="hint">JPEG or PNG, up to ~20 MB.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas area (shown when image loaded) -->
+        <div id="canvasArea" class="canvas-area hidden">
+          <div class="canvas-toolbar">
+            <div class="toolbar-instructions">
+              <small>Click and drag to select the area around the person you want to remove.</small>
+            </div>
+            <div class="controls">
+              <button id="uploadNewBtn" class="btn btn-icon" title="Upload new image" aria-label="Upload new image">
+                <i class="bx bx-folder-open" aria-hidden="true"></i>
+              </button>
+              <button id="undoBtn" class="btn btn-icon" title="Undo" aria-label="Undo" disabled>
+                <i class="bx bx-undo" aria-hidden="true"></i>
+              </button>
+              <button id="redoBtn" class="btn btn-icon" title="Redo" aria-label="Redo" disabled>
+                <i class="bx bx-redo" aria-hidden="true"></i>
+              </button>
+              <button id="revertBtn" class="btn btn-icon" title="Revert to original" aria-label="Revert to original">
+                <i class="bx bx-reset" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="canvas-wrapper">
+            <div class="canvas-stage">
+              <canvas id="imageCanvas" aria-label="Image canvas"></canvas>
+              <canvas id="overlayCanvas" aria-label="Overlay canvas"></canvas>
+            </div>
+          </div>
+
+        <div id="submitStatus" class="status" aria-live="polite"></div>
+        <div id="customPromptRow" class="custom-prompt-row hidden" aria-hidden="true">
+          <label for="customPromptInput" class="custom-prompt-label">Custom prompt</label>
+          <input id="customPromptInput" type="text" placeholder="delete (default)" class="custom-prompt-input" />
+          <small class="custom-prompt-hint">Describe what to do inside the selection. Example: "replace with a parrot"</small>
+        </div>
+        <div class="action-row">
+          <div class="action-row-left">
+            <button id="submitBtn" class="btn btn-cta">Delete Them!</button>
+            <button id="editPromptBtn" class="btn btn-secondary" aria-expanded="false" aria-controls="customPromptRow">Edit Prompt</button>
+          </div>
+          <div class="action-row-right">
+            <button id="downloadCurrentBtn" class="btn btn-primary" title="Download current image">
+              <i class="bx bx-download" aria-hidden="true"></i>
+              <span style="margin-left:8px">Download</span>
+            </button>
+          </div>
+        </div>
+        </div>
+      </section>
+      
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <small>© 2025 deletethem.com</small>
+      </div>
+    </footer>
+
+  </body>
+  </html>
+
+
