@@ -140,7 +140,7 @@ function call_gemini_with_face_crop(string $imageData, array $markers, string $a
     if ($userPrompt !== '') {
         // Use user intent with strong constraints
         $action = trim($userPrompt);
-        $prompt = "CRITICAL: {$action}. Focus any edits within the region enclosed by the red dashed box; outside areas should remain natural. {$baseInstruction}";
+        $prompt = "CRITICAL: Inside the red dashed box: {$action}. Remove the red box from the final result. Keep the exact {$originalWidth}x{$originalHeight} size.";
     } else {
         $prompt = "FOLLOW THESE STEPS IN ORDER:
 1. IDENTIFY: Look at the person marked by the red box.
