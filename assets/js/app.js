@@ -1,7 +1,9 @@
 (() => {
   const workspaceSection = document.getElementById('workspaceSection');
   const uploadMessage = document.getElementById('uploadMessage');
+  const exampleShowcase = document.getElementById('exampleShowcase');
   const canvasArea = document.getElementById('canvasArea');
+  const siteLogo = document.querySelector('.site-logo');
   const fileInput = document.getElementById('fileInput');
   const browseBtn = document.getElementById('browseBtn');
   const startOverBtn = document.getElementById('startOverBtn');
@@ -15,6 +17,18 @@
   const overlayCanvas = document.getElementById('overlayCanvas');
   const imageCtx = imageCanvas.getContext('2d');
   const overlayCtx = overlayCanvas.getContext('2d');
+
+  // Fullscreen mobile editor elements
+  const fullscreenModal = document.getElementById('fullscreenModal');
+  const fullscreenCancelBtn = document.getElementById('fullscreenCancelBtn');
+  const fullscreenOkBtn = document.getElementById('fullscreenOkBtn');
+  const fullscreenImageCanvas = document.getElementById('fullscreenImageCanvas');
+  const fullscreenOverlayCanvas = document.getElementById('fullscreenOverlayCanvas');
+  const fullscreenImageCtx = fullscreenImageCanvas.getContext('2d');
+  const fullscreenOverlayCtx = fullscreenOverlayCanvas.getContext('2d');
+
+  // Processing overlay element
+  const processingOverlay = document.getElementById('processingOverlay');
   // Global image size caps for testing (both width and height)
   const MAX_IMAGE_WIDTH = 1024;
   const MAX_IMAGE_HEIGHT = 1024;
@@ -44,7 +58,24 @@
     isSubmitting: false,
     selectionPromptText: 'delete',
     isEditingPrompt: false,
-    isCustomPromptOpen: false
+    isCustomPromptOpen: false,
+    // Fullscreen mobile editor state
+    isFullscreenMode: false,
+    fullscreenZoom: 1,
+    fullscreenPanX: 0,
+    fullscreenPanY: 0,
+    fullscreenMarkersDisplay: [], // Selection in fullscreen coordinates
+    fullscreenDragState: {
+      isDragging: false,
+      startX: 0,
+      startY: 0
+    },
+    fullscreenTouchState: {
+      isPanning: false,
+      isZooming: false,
+      lastTouchDistance: 0,
+      lastTouchCenter: { x: 0, y: 0 }
+    }
   };
 
   function setHidden(el, hidden) {
@@ -54,6 +85,29 @@
   function preventDefaults(e) {
     e.preventDefault();
     e.stopPropagation();
+  }
+
+  // Mobile detection
+  function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.innerWidth <= 768) ||
+           ('ontouchstart' in window);
+  }
+
+  // Processing overlay functions
+  function showProcessingOverlay() {
+    setHidden(processingOverlay, false);
+    processingOverlay.setAttribute('aria-hidden', 'false');
+    // Prevent interaction with background elements
+    document.body.style.pointerEvents = 'none';
+    processingOverlay.style.pointerEvents = 'auto';
+  }
+
+  function hideProcessingOverlay() {
+    setHidden(processingOverlay, true);
+    processingOverlay.setAttribute('aria-hidden', 'true');
+    // Restore interaction with background elements
+    document.body.style.pointerEvents = '';
   }
 
   function enableDnD() {
@@ -112,6 +166,7 @@
       function setupImageState() {
         // Make the canvas visible BEFORE measuring width so we don't get 0
         setHidden(uploadMessage, true);
+        setHidden(exampleShowcase, true);
         setHidden(canvasArea, false);
         
         // Wait a frame to ensure layout is updated, then size canvases accurately
@@ -495,6 +550,7 @@
     }
     // Mark submitting, disable and show loading spinner in the button
     state.isSubmitting = true;
+    showProcessingOverlay(); // Show blocking overlay
     if (!submitBtn.dataset.originalHtml) {
       submitBtn.dataset.originalHtml = submitBtn.innerHTML;
     }
@@ -643,7 +699,8 @@
       alert(err.message || 'Something went wrong. Please try again.');
       submitStatus.textContent = 'Error';
     } finally {
-      // Restore button
+      // Hide processing overlay and restore button
+      hideProcessingOverlay();
       submitBtn.disabled = false;
       state.isSubmitting = false;
       submitBtn.innerHTML = submitBtn.dataset.originalHtml || 'Delete Them!';
@@ -747,8 +804,11 @@
   document.addEventListener('mousemove', onPointerMove); // Listen on document for out-of-bounds dragging
   document.addEventListener('mouseup', onPointerUp);
   
-  // Touch event listeners for mobile
+  // Touch event listeners for mobile (disabled on mobile devices - use fullscreen mode instead)
   overlayCanvas.addEventListener('touchstart', (e) => {
+    // Skip rectangle drawing on mobile devices - they should use fullscreen mode
+    if (isMobileDevice()) return;
+    
     e.preventDefault(); // Prevent scrolling while drawing
     const touch = e.touches[0];
     onPointerDown({ 
@@ -760,6 +820,9 @@
   
   document.addEventListener('touchmove', (e) => {
     if (!state.dragState.isDragging) return; // allow normal UI interactions
+    // Skip rectangle drawing on mobile devices - they should use fullscreen mode
+    if (isMobileDevice()) return;
+    
     e.preventDefault(); // Prevent scrolling while drawing
     const touch = e.touches[0];
     onPointerMove({
@@ -771,12 +834,18 @@
   
   document.addEventListener('touchend', (e) => {
     if (!state.dragState.isDragging) return; // do not block taps on inputs/buttons
+    // Skip rectangle drawing on mobile devices - they should use fullscreen mode
+    if (isMobileDevice()) return;
+    
     e.preventDefault();
     onPointerUp();
   });
   
   document.addEventListener('touchcancel', (e) => {
     if (!state.dragState.isDragging) return;
+    // Skip rectangle drawing on mobile devices - they should use fullscreen mode
+    if (isMobileDevice()) return;
+    
     e.preventDefault();
     onPointerUp();
   });
@@ -861,6 +930,429 @@
     // window.open(dataUrl, '_blank');
   });
 
+  // Fullscreen Mobile Editor Functions
+  function openFullscreenEditor() {
+    if (!state.image) return;
+    
+    state.isFullscreenMode = true;
+    state.fullscreenZoom = 1;
+    state.fullscreenPanX = 0;
+    state.fullscreenPanY = 0;
+    // Convert main canvas selection to natural image coordinates for fullscreen
+    state.fullscreenMarkersDisplay = state.markersDisplay.map(marker => ({
+      x: marker.x * state.scaleX,
+      y: marker.y * state.scaleY,
+      width: marker.width * state.scaleX,
+      height: marker.height * state.scaleY
+    }));
+    
+    setHidden(fullscreenModal, false);
+    fullscreenModal.setAttribute('aria-hidden', 'false');
+    
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+    
+    setupFullscreenCanvas();
+    drawFullscreenImage();
+    drawFullscreenOverlay();
+  }
+
+  function closeFullscreenEditor(saveSelection = false) {
+    state.isFullscreenMode = false;
+    setHidden(fullscreenModal, true);
+    fullscreenModal.setAttribute('aria-hidden', 'true');
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
+    
+    if (saveSelection) {
+      // Transfer fullscreen selection back to main canvas
+      // Convert from natural image coordinates to main canvas display coordinates
+      state.markersDisplay = state.fullscreenMarkersDisplay.map(marker => ({
+        x: marker.x / state.scaleX,
+        y: marker.y / state.scaleY,
+        width: marker.width / state.scaleX,
+        height: marker.height / state.scaleY
+      }));
+      drawOverlay();
+    }
+  }
+
+  function setupFullscreenCanvas() {
+    if (!state.image) return;
+    
+    const container = fullscreenModal.querySelector('.fullscreen-canvas-container');
+    const containerRect = container.getBoundingClientRect();
+    
+    // Make canvas fill the entire container for unlimited zoom
+    const canvasWidth = containerRect.width;
+    const canvasHeight = containerRect.height;
+    
+    fullscreenImageCanvas.width = canvasWidth;
+    fullscreenImageCanvas.height = canvasHeight;
+    fullscreenOverlayCanvas.width = canvasWidth;
+    fullscreenOverlayCanvas.height = canvasHeight;
+    
+    // Update canvas CSS size
+    fullscreenImageCanvas.style.width = canvasWidth + 'px';
+    fullscreenImageCanvas.style.height = canvasHeight + 'px';
+    fullscreenOverlayCanvas.style.width = canvasWidth + 'px';
+    fullscreenOverlayCanvas.style.height = canvasHeight + 'px';
+    
+    // Calculate initial image size to fit within canvas
+    const aspectRatio = state.naturalWidth / state.naturalHeight;
+    let imageWidth = canvasWidth * 0.9;
+    let imageHeight = imageWidth / aspectRatio;
+    
+    if (imageHeight > canvasHeight * 0.9) {
+      imageHeight = canvasHeight * 0.9;
+      imageWidth = imageHeight * aspectRatio;
+    }
+    
+    // Store fullscreen canvas and initial image dimensions
+    state.fullscreenCanvasWidth = canvasWidth;
+    state.fullscreenCanvasHeight = canvasHeight;
+    state.fullscreenImageWidth = imageWidth;
+    state.fullscreenImageHeight = imageHeight;
+    
+    // Scale factors from natural image to initial display size
+    state.fullscreenScaleX = imageWidth / state.naturalWidth;
+    state.fullscreenScaleY = imageHeight / state.naturalHeight;
+  }
+
+  function drawFullscreenImage() {
+    if (!state.image) return;
+    
+    fullscreenImageCtx.clearRect(0, 0, state.fullscreenCanvasWidth, state.fullscreenCanvasHeight);
+    
+    const { fullscreenZoom, fullscreenPanX, fullscreenPanY } = state;
+    const centerX = state.fullscreenCanvasWidth / 2;
+    const centerY = state.fullscreenCanvasHeight / 2;
+    
+    // Calculate image position (centered initially)
+    const imageX = centerX - (state.fullscreenImageWidth / 2);
+    const imageY = centerY - (state.fullscreenImageHeight / 2);
+    
+    fullscreenImageCtx.save();
+    // Apply pan and zoom transformations
+    fullscreenImageCtx.translate(centerX + fullscreenPanX, centerY + fullscreenPanY);
+    fullscreenImageCtx.scale(fullscreenZoom, fullscreenZoom);
+    fullscreenImageCtx.translate(-(centerX + fullscreenPanX), -(centerY + fullscreenPanY));
+    
+    // Draw image at calculated position with zoom applied
+    fullscreenImageCtx.drawImage(
+      state.image, 
+      imageX, 
+      imageY, 
+      state.fullscreenImageWidth, 
+      state.fullscreenImageHeight
+    );
+    fullscreenImageCtx.restore();
+  }
+
+  function drawFullscreenOverlay() {
+    fullscreenOverlayCtx.clearRect(0, 0, state.fullscreenCanvasWidth, state.fullscreenCanvasHeight);
+    
+    state.fullscreenMarkersDisplay.forEach(marker => {
+      const { fullscreenZoom, fullscreenPanX, fullscreenPanY } = state;
+      const centerX = state.fullscreenCanvasWidth / 2;
+      const centerY = state.fullscreenCanvasHeight / 2;
+      
+      // Calculate image position (same as in drawFullscreenImage)
+      const imageX = centerX - (state.fullscreenImageWidth / 2);
+      const imageY = centerY - (state.fullscreenImageHeight / 2);
+      
+      fullscreenOverlayCtx.save();
+      // Apply same transformations as image
+      fullscreenOverlayCtx.translate(centerX + fullscreenPanX, centerY + fullscreenPanY);
+      fullscreenOverlayCtx.scale(fullscreenZoom, fullscreenZoom);
+      fullscreenOverlayCtx.translate(-(centerX + fullscreenPanX), -(centerY + fullscreenPanY));
+      
+      // Convert marker coordinates from image space to canvas space
+      const markerX = imageX + (marker.x * state.fullscreenScaleX);
+      const markerY = imageY + (marker.y * state.fullscreenScaleY);
+      const markerWidth = marker.width * state.fullscreenScaleX;
+      const markerHeight = marker.height * state.fullscreenScaleY;
+      
+      // Draw selection rectangle
+      fullscreenOverlayCtx.strokeStyle = '#ff6a6a';
+      fullscreenOverlayCtx.lineWidth = 2 / fullscreenZoom; // Adjust line width for zoom
+      fullscreenOverlayCtx.setLineDash([5 / fullscreenZoom, 5 / fullscreenZoom]);
+      fullscreenOverlayCtx.strokeRect(markerX, markerY, markerWidth, markerHeight);
+      
+      fullscreenOverlayCtx.restore();
+    });
+  }
+
+  // Coordinate conversion for fullscreen mode
+  function canvasToImageCoords(canvasX, canvasY, canvasWidth, canvasHeight) {
+    const { fullscreenZoom, fullscreenPanX, fullscreenPanY } = state;
+    const centerX = state.fullscreenCanvasWidth / 2;
+    const centerY = state.fullscreenCanvasHeight / 2;
+    const imageX = centerX - (state.fullscreenImageWidth / 2);
+    const imageY = centerY - (state.fullscreenImageHeight / 2);
+    
+    // Reverse the transformations applied in drawing
+    // 1. Undo the translation and zoom
+    const transformedCenterX = centerX + fullscreenPanX;
+    const transformedCenterY = centerY + fullscreenPanY;
+    
+    // Convert canvas coordinates to transformed image space
+    const imgSpaceX = (canvasX - transformedCenterX) / fullscreenZoom + transformedCenterX;
+    const imgSpaceY = (canvasY - transformedCenterY) / fullscreenZoom + transformedCenterY;
+    const imgSpaceWidth = canvasWidth / fullscreenZoom;
+    const imgSpaceHeight = canvasHeight / fullscreenZoom;
+    
+    // Convert from canvas space to image space
+    const relativeX = imgSpaceX - imageX;
+    const relativeY = imgSpaceY - imageY;
+    
+    // Convert from display coordinates to natural image coordinates
+    const naturalX = relativeX / state.fullscreenScaleX;
+    const naturalY = relativeY / state.fullscreenScaleY;
+    const naturalWidth = imgSpaceWidth / state.fullscreenScaleX;
+    const naturalHeight = imgSpaceHeight / state.fullscreenScaleY;
+    
+    // Ensure the selection is within image bounds
+    if (naturalX >= 0 && naturalY >= 0 && 
+        naturalX + naturalWidth <= state.naturalWidth && 
+        naturalY + naturalHeight <= state.naturalHeight) {
+      return {
+        x: naturalX,
+        y: naturalY,
+        width: naturalWidth,
+        height: naturalHeight
+      };
+    }
+    
+    return null; // Selection is outside image bounds
+  }
+
+  // Touch gesture handling for fullscreen mode
+  function getDistance(touch1, touch2) {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function getCenter(touch1, touch2) {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  }
+
+  function handleFullscreenTouchStart(e) {
+    if (!state.isFullscreenMode) return;
+    
+    const touches = e.touches;
+    
+    if (touches.length === 1) {
+      // Single touch - start selection or pan
+      const rect = fullscreenOverlayCanvas.getBoundingClientRect();
+      const x = touches[0].clientX - rect.left;
+      const y = touches[0].clientY - rect.top;
+      
+      state.fullscreenDragState.isDragging = true;
+      state.fullscreenDragState.startX = x;
+      state.fullscreenDragState.startY = y;
+      
+    } else if (touches.length === 2) {
+      // Two finger - start zoom/pan
+      state.fullscreenTouchState.isZooming = true;
+      state.fullscreenTouchState.lastTouchDistance = getDistance(touches[0], touches[1]);
+      state.fullscreenTouchState.lastTouchCenter = getCenter(touches[0], touches[1]);
+    }
+    
+    e.preventDefault();
+  }
+
+  function handleFullscreenTouchMove(e) {
+    if (!state.isFullscreenMode) return;
+    
+    const touches = e.touches;
+    
+    if (touches.length === 1 && state.fullscreenDragState.isDragging) {
+      // Single touch - selection or pan
+      const rect = fullscreenOverlayCanvas.getBoundingClientRect();
+      const x = touches[0].clientX - rect.left;
+      const y = touches[0].clientY - rect.top;
+      
+      if (state.fullscreenTouchState.isPanning) {
+        // Pan the image
+        const deltaX = x - state.fullscreenDragState.startX;
+        const deltaY = y - state.fullscreenDragState.startY;
+        state.fullscreenPanX += deltaX;
+        state.fullscreenPanY += deltaY;
+        state.fullscreenDragState.startX = x;
+        state.fullscreenDragState.startY = y;
+        
+        drawFullscreenImage();
+        drawFullscreenOverlay();
+      } else {
+        // Create selection rectangle - convert canvas coordinates to image coordinates
+        const startX = Math.min(state.fullscreenDragState.startX, x);
+        const startY = Math.min(state.fullscreenDragState.startY, y);
+        const width = Math.abs(x - state.fullscreenDragState.startX);
+        const height = Math.abs(y - state.fullscreenDragState.startY);
+        
+        if (width > 10 && height > 10) { // Minimum selection size
+          // Convert from canvas coordinates to image coordinates
+          const imageCoords = canvasToImageCoords(startX, startY, width, height);
+          if (imageCoords) {
+            state.fullscreenMarkersDisplay = [imageCoords];
+            drawFullscreenOverlay();
+          }
+        }
+      }
+      
+    } else if (touches.length === 2 && state.fullscreenTouchState.isZooming) {
+      // Two finger - zoom and pan
+      const distance = getDistance(touches[0], touches[1]);
+      const center = getCenter(touches[0], touches[1]);
+      
+      // Zoom
+      const zoomFactor = distance / state.fullscreenTouchState.lastTouchDistance;
+      const newZoom = Math.max(0.5, Math.min(3, state.fullscreenZoom * zoomFactor));
+      
+      // Pan to keep zoom centered
+      const rect = fullscreenOverlayCanvas.getBoundingClientRect();
+      const canvasCenter = {
+        x: rect.width / 2,
+        y: rect.height / 2
+      };
+      
+      const zoomCenterX = center.x - rect.left - canvasCenter.x;
+      const zoomCenterY = center.y - rect.top - canvasCenter.y;
+      
+      state.fullscreenPanX += zoomCenterX * (1 - zoomFactor);
+      state.fullscreenPanY += zoomCenterY * (1 - zoomFactor);
+      state.fullscreenZoom = newZoom;
+      
+      // Update for next frame
+      state.fullscreenTouchState.lastTouchDistance = distance;
+      state.fullscreenTouchState.lastTouchCenter = center;
+      
+      drawFullscreenImage();
+      drawFullscreenOverlay();
+    }
+    
+    e.preventDefault();
+  }
+
+  function handleFullscreenTouchEnd(e) {
+    if (!state.isFullscreenMode) return;
+    
+    if (e.touches.length === 0) {
+      state.fullscreenDragState.isDragging = false;
+      state.fullscreenTouchState.isZooming = false;
+      state.fullscreenTouchState.isPanning = false;
+    } else if (e.touches.length === 1) {
+      state.fullscreenTouchState.isZooming = false;
+    }
+    
+    e.preventDefault();
+  }
+
+  // Event listeners for fullscreen mode
+  fullscreenCancelBtn.addEventListener('click', () => closeFullscreenEditor(false));
+  fullscreenOkBtn.addEventListener('click', () => closeFullscreenEditor(true));
+
+  // Touch events for fullscreen canvas
+  fullscreenOverlayCanvas.addEventListener('touchstart', handleFullscreenTouchStart, { passive: false });
+  fullscreenOverlayCanvas.addEventListener('touchmove', handleFullscreenTouchMove, { passive: false });
+  fullscreenOverlayCanvas.addEventListener('touchend', handleFullscreenTouchEnd, { passive: false });
+
+  // Mobile fullscreen trigger with scroll detection
+  let mobileTouch = {
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    moved: false
+  };
+
+  overlayCanvas.addEventListener('touchstart', (e) => {
+    if (isMobileDevice() && state.image && !state.isFullscreenMode) {
+      const touch = e.touches[0];
+      mobileTouch.startX = touch.clientX;
+      mobileTouch.startY = touch.clientY;
+      mobileTouch.startTime = Date.now();
+      mobileTouch.moved = false;
+      // Don't prevent default here - let scroll work normally
+    }
+  }, { passive: true });
+
+  overlayCanvas.addEventListener('touchmove', (e) => {
+    if (isMobileDevice() && state.image && !state.isFullscreenMode) {
+      const touch = e.touches[0];
+      const deltaX = Math.abs(touch.clientX - mobileTouch.startX);
+      const deltaY = Math.abs(touch.clientY - mobileTouch.startY);
+      
+      // If moved more than 10px in any direction, consider it scrolling/movement
+      if (deltaX > 10 || deltaY > 10) {
+        mobileTouch.moved = true;
+      }
+    }
+  }, { passive: true });
+
+  overlayCanvas.addEventListener('touchend', (e) => {
+    if (isMobileDevice() && state.image && !state.isFullscreenMode) {
+      const touchDuration = Date.now() - mobileTouch.startTime;
+      
+      // Only trigger fullscreen if:
+      // 1. Touch didn't move significantly (not scrolling)
+      // 2. Touch duration was reasonable (not a long press)
+      // 3. Only one touch point (not multi-touch gesture)
+      if (!mobileTouch.moved && touchDuration < 500 && e.changedTouches.length === 1) {
+        e.preventDefault();
+        openFullscreenEditor();
+      }
+    }
+  }, { passive: false });
+
+  // Reset app when clicking on logo
+  function resetApp() {
+    // Clear current state
+    state.file = null;
+    state.image = null;
+    state.markersDisplay = [];
+    state.history = [];
+    state.historyIndex = -1;
+    state.isSubmitting = false;
+    state.selectionPromptText = 'delete';
+    state.isEditingPrompt = false;
+    state.isCustomPromptOpen = false;
+    
+    // Reset file input
+    fileInput.value = '';
+    
+    // Reset UI
+    setHidden(canvasArea, true);
+    setHidden(uploadMessage, false);
+    setHidden(exampleShowcase, false);
+    
+    // Clear any status messages
+    submitStatus.textContent = '';
+    
+    // Hide custom prompt if open
+    if (state.isCustomPromptOpen) {
+      setHidden(customPromptRow, true);
+      editPromptBtn.setAttribute('aria-expanded', 'false');
+      state.isCustomPromptOpen = false;
+    }
+    
+    // Clear custom prompt input
+    customPromptInput.value = '';
+    
+    // Revoke any result URLs to free memory
+    if (lastResultUrl) {
+      try { URL.revokeObjectURL(lastResultUrl); } catch (_) {}
+      lastResultUrl = null;
+    }
+  }
+
+  siteLogo.addEventListener('click', resetApp);
+  siteLogo.style.cursor = 'pointer';
 
   window.addEventListener('resize', onResize);
 })();

@@ -308,7 +308,7 @@ function call_gemini_with_face_crop(string $imageData, array $markers, string $a
         $action = trim($userPrompt);
         $prompt = "CRITICAL: {$action}. Focus any edits within the region enclosed by the red dashed box; outside areas should remain natural. {$baseInstruction}";
     } else {
-        $prompt = "CRITICAL: Remove person(s) inside the red dashed box and fill the background naturally. {$baseInstruction}";
+        $prompt = "CRITICAL: Look at the red dashed box and identify which single person fills more of that box area. Remove only that one person entirely from the photo, leaving all other people untouched. Do NOT add, replace with, or generate any new people. Fill in only with background elements like scenery, objects, or empty space - never with people. {$baseInstruction}";
     }
 
     $payload = [

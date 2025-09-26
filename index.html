@@ -4,6 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Delete Them</title>
+    <meta name="description" content="Got someone in your photo you want to get rid of? Delete them with AI-powered photo editing." />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://deletethem.oneover.com/" />
+    <meta property="og:title" content="Delete Them - AI Photo Editor" />
+    <meta property="og:description" content="Got someone in your photo you want to get rid of? Delete them with AI-powered photo editing." />
+    <meta property="og:image" content="https://deletethem.oneover.com/assets/images/deletethem-social.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Delete Them - AI Photo Editor" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://deletethem.oneover.com/" />
+    <meta property="twitter:title" content="Delete Them - AI Photo Editor" />
+    <meta property="twitter:description" content="Got someone in your photo you want to get rid of? Delete them with AI-powered photo editing." />
+    <meta property="twitter:image" content="https://deletethem.oneover.com/assets/images/deletethem-social.jpg" />
+    <meta property="twitter:image:alt" content="Delete Them - AI Photo Editor" />
+    
     <link rel="stylesheet" href="./assets/css/styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,11 +33,20 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script defer src="./assets/js/app.js"></script>
   </head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-JQWMLLWY3C"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-JQWMLLWY3C');
+  </script>
   <body>
     <header class="site-header">
       <div class="container">
         <div class="site-logo" aria-label="Delete Them">
-          <img src="./assets/images/logo.svg" alt="Delete Them" />
+          <img src="./assets/images/logo.png" alt="Delete Them" />
         </div>
         <p class="tagline">Got someone in your photo you want to get rid of? Delete them.</p>
       </div>
@@ -30,7 +59,7 @@
         <!-- Upload message (shown when no image loaded) -->
         <div id="uploadMessage" class="upload-message">
           <div class="upload-content">
-            <div class="drop-icon">📷</div>
+            <div class="drop-icon">📷 👻</div>
             <div>
               <p><strong>Drag & drop</strong> an image here, or</p>
               <button id="browseBtn" class="btn">Browse</button>
@@ -87,6 +116,17 @@
           </div>
         </div>
         </div>
+        
+        <!-- Example showcase (shown when no image loaded) -->
+        <div id="exampleShowcase" class="example-showcase">
+          <div class="example-content">
+            <h3>See what's possible</h3>
+            <div class="example-image-container">
+              <img src="./assets/images/examples.jpg" alt="Before and after examples of photo editing" class="example-image" />
+            </div>
+            <p class="example-description">Remove unwanted people from your photos with AI-powered precision.</p>
+          </div>
+        </div>
       </section>
       
     </main>
@@ -96,6 +136,38 @@
         <small>© 2025 deletethem.com</small>
       </div>
     </footer>
+
+    <!-- Fullscreen Mobile Editor Modal -->
+    <div id="fullscreenModal" class="fullscreen-modal hidden" aria-hidden="true">
+      <div class="fullscreen-header">
+        <div class="fullscreen-instructions">
+          <small>Select a region around the person you want to remove</small>
+        </div>
+      </div>
+      
+      <div class="fullscreen-canvas-container">
+        <div class="fullscreen-canvas-stage">
+          <canvas id="fullscreenImageCanvas" aria-label="Fullscreen image canvas"></canvas>
+          <canvas id="fullscreenOverlayCanvas" aria-label="Fullscreen overlay canvas"></canvas>
+        </div>
+      </div>
+      
+      <div class="fullscreen-footer">
+        <div class="fullscreen-controls">
+          <button id="fullscreenCancelBtn" class="btn btn-secondary">Cancel</button>
+          <button id="fullscreenOkBtn" class="btn btn-primary">OK</button>
+        </div>
+        <small>Pinch to zoom • Drag to pan • Tap and drag to select</small>
+      </div>
+    </div>
+
+    <!-- Processing Overlay -->
+    <div id="processingOverlay" class="processing-overlay hidden" aria-hidden="true">
+      <div class="processing-content">
+        <div class="processing-spinner"></div>
+        <div class="processing-text">Processing...</div>
+      </div>
+    </div>
 
   </body>
   </html>
